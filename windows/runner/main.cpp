@@ -6,6 +6,18 @@
 #include "utils.h"
 
 // =============================
+// Hotkey constants
+// =============================
+#define HOTKEY_ID 1
+#define HOTKEY_SHOW_HIDE 0x001
+
+// =============================
+// Global variables
+// =============================
+static FlutterWindow* g_window = nullptr;
+static bool g_window_visible = true;
+
+// =============================
 // Struct to set blur
 // =============================
 enum ACCENT_STATE {
@@ -33,6 +45,27 @@ enum WINDOWCOMPOSITIONATTRIB {
 
 typedef BOOL (WINAPI* pSetWindowCompositionAttribute)(HWND, WINDOWCOMPOSITIONATTRIBDATA*);
 
+// =============================
+// Function to toggle window visibility
+// =============================
+void ToggleWindowVisibility() {
+  if (!g_window) return;
+  
+  HWND hwnd = g_window->GetHandle();
+  if (!hwnd) return;
+  
+  if (g_window_visible) {
+    // Hide window
+    ShowWindow(hwnd, SW_HIDE);
+    g_window_visible = false;
+  } else {
+    // Show window
+    ShowWindow(hwnd, SW_SHOW);
+    SetForegroundWindow(hwnd);
+    g_window_visible = true;
+  }
+}
+
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command) {
   // Attach to console when present (e.g., 'flutter run') or create a
@@ -53,6 +86,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
 
   FlutterWindow window(project);
+  g_window = &window; // Store global reference
+  
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);
   if (!window.Create(L"spectra", origin, size)) {
@@ -61,10 +96,20 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   window.SetQuitOnClose(true);
 
   // ==============================
-  // SET WINDOW TO BE INVISIBLE TO SCREEN CAPTURE
+  // REGISTER GLOBAL HOTKEY (Windows + /)
   // ==============================
   HWND hwnd = window.GetHandle();
   if (hwnd) {
+    // Register Windows + / hotkey (VK_OEM_2 is the '/' key)
+    if (!RegisterHotKey(hwnd, HOTKEY_ID, MOD_WIN, VK_OEM_2)) {
+      DWORD err = GetLastError();
+      std::wstring msg = L"RegisterHotKey failed, error=" + std::to_wstring(err) + L"\n";
+      OutputDebugString(msg.c_str());
+    }
+    
+    // ==============================
+    // SET WINDOW TO BE INVISIBLE TO SCREEN CAPTURE
+    // ==============================
     if (!SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE)) {
       DWORD err = GetLastError();
       std::wstring msg = L"SetWindowDisplayAffinity failed, error=" + std::to_wstring(err) + L"\n";
@@ -117,10 +162,26 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   // =============================
 
+  // =============================
+  // MESSAGE LOOP WITH HOTKEY HANDLING
+  // =============================
   ::MSG msg;
   while (::GetMessage(&msg, nullptr, 0, 0)) {
+    // Handle hotkey messages
+    if (msg.message == WM_HOTKEY) {
+      if (msg.wParam == HOTKEY_ID) {
+        ToggleWindowVisibility();
+      }
+      // Hotkey notifications are now handled directly in FlutterWindow::MessageHandler
+    }
+    
     ::TranslateMessage(&msg);
     ::DispatchMessage(&msg);
+  }
+
+  // Unregister hotkey before exit
+  if (hwnd) {
+    UnregisterHotKey(hwnd, HOTKEY_ID);
   }
 
   ::CoUninitialize();

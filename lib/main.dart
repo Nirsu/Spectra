@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'pages/hotkey_settings_page.dart';
+import 'services/hotkey_service.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Initialiser le service hotkey
+  HotkeyService.initialize();
   runApp(const MyApp());
 }
 
@@ -66,6 +71,23 @@ class _MyHomePageState extends State<MyHomePage> {
             Text(
               '$_counter',
               style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const HotkeySettingsPage(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.keyboard),
+              label: const Text('Configurer raccourci'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+                foregroundColor: Colors.white,
+              ),
             ),
           ],
         ),

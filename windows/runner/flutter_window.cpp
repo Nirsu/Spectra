@@ -5,9 +5,14 @@
 #include "flutter/generated_plugin_registrant.h"
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
-    : project_(project) {}
+    : project_(project), current_hotkey_id_(0), current_modifiers_(0), current_keycode_(0) {}
 
-FlutterWindow::~FlutterWindow() {}
+FlutterWindow::~FlutterWindow() {
+  // Unregister hotkey if registered
+  if (current_hotkey_id_ > 0) {
+    UnregisterHotKey(GetHandle(), current_hotkey_id_);
+  }
+}
 
 bool FlutterWindow::OnCreate() {
   if (!Win32Window::OnCreate()) {
@@ -26,6 +31,17 @@ bool FlutterWindow::OnCreate() {
   }
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
+
+  // Setup hotkey method channel
+  hotkey_channel_ = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+      flutter_controller_->engine()->messenger(), "spectra/hotkey",
+      &flutter::StandardMethodCodec::GetInstance());
+
+  hotkey_channel_->SetMethodCallHandler(
+      [this](const flutter::MethodCall<flutter::EncodableValue> &call,
+             std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+        HandleMethodCall(call, std::move(result));
+      });
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
@@ -51,6 +67,15 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  // Handle hotkey messages first
+  if (message == WM_HOTKEY && wparam == current_hotkey_id_) {
+    // Notify Flutter that hotkey was pressed
+    if (hotkey_channel_) {
+      hotkey_channel_->InvokeMethod("onHotkeyPressed", nullptr);
+    }
+    return 0;
+  }
+
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =
@@ -68,4 +93,66 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   }
 
   return Win32Window::MessageHandler(hwnd, message, wparam, lparam);
+}
+
+void FlutterWindow::HandleMethodCall(
+    const flutter::MethodCall<flutter::EncodableValue> &method_call,
+    std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+  
+  if (method_call.method_name().compare("registerHotkey") == 0) {
+    const auto* arguments = std::get_if<flutter::EncodableMap>(method_call.arguments());
+    if (arguments) {
+      auto modifiers_it = arguments->find(flutter::EncodableValue("modifiers"));
+      auto keycode_it = arguments->find(flutter::EncodableValue("keyCode"));
+      
+      if (modifiers_it != arguments->end() && keycode_it != arguments->end()) {
+        int modifiers = std::get<int>(modifiers_it->second);
+        int keycode = std::get<int>(keycode_it->second);
+        
+        // Unregister previous hotkey
+        if (current_hotkey_id_ > 0) {
+          UnregisterHotKey(GetHandle(), current_hotkey_id_);
+        }
+        
+        // Register new hotkey
+        current_hotkey_id_++;
+        if (RegisterHotKey(GetHandle(), current_hotkey_id_, modifiers, keycode)) {
+          current_modifiers_ = modifiers;
+          current_keycode_ = keycode;
+          result->Success(flutter::EncodableValue(true));
+        } else {
+          result->Success(flutter::EncodableValue(false));
+        }
+      } else {
+        result->Error("INVALID_ARGUMENTS", "Missing modifiers or keyCode");
+      }
+    } else {
+      result->Error("INVALID_ARGUMENTS", "Arguments must be a map");
+    }
+  }
+  else if (method_call.method_name().compare("unregisterHotkey") == 0) {
+    bool success = false;
+    if (current_hotkey_id_ > 0) {
+      success = UnregisterHotKey(GetHandle(), current_hotkey_id_);
+      if (success) {
+        current_modifiers_ = 0;
+        current_keycode_ = 0;
+        current_hotkey_id_ = 0;
+      }
+    }
+    result->Success(flutter::EncodableValue(success));
+  }
+  else if (method_call.method_name().compare("getCurrentHotkey") == 0) {
+    if (current_modifiers_ != 0 && current_keycode_ != 0) {
+      flutter::EncodableMap response;
+      response[flutter::EncodableValue("modifiers")] = flutter::EncodableValue(current_modifiers_);
+      response[flutter::EncodableValue("keyCode")] = flutter::EncodableValue(current_keycode_);
+      result->Success(flutter::EncodableValue(response));
+    } else {
+      result->Success();
+    }
+  }
+  else {
+    result->NotImplemented();
+  }
 }
