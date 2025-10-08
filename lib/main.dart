@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'pages/hotkey_settings_page.dart';
 import 'pages/discord_page.dart';
 import 'services/hotkey_service.dart';
@@ -7,7 +8,7 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   // Initialiser le service hotkey
   HotkeyService.initialize();
-  runApp(const MyApp());
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends StatelessWidget {
