@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'pages/hotkey_settings_page.dart';
+import 'pages/discord_page.dart';
 import 'services/hotkey_service.dart';
 
 void main() {
@@ -15,9 +16,13 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Spectra',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.dark(
+          primary: Colors.white,
+          secondary: Colors.grey,
+          surface: Colors.black,
+        ),
         textTheme: const TextTheme(
           bodyLarge: TextStyle(color: Colors.white),
           bodyMedium: TextStyle(color: Colors.white),
@@ -36,66 +41,70 @@ class MyApp extends StatelessWidget {
           labelSmall: TextStyle(color: Colors.white),
         ),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const MyHomePage(),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  final String title;
+  const MyHomePage({super.key});
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      _counter++;
-    });
-  }
+  int _selectedIndex = 0;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+      body: Row(
+        children: [
+          // Navigation Rail
+          NavigationRail(
+            selectedIndex: _selectedIndex,
+            onDestinationSelected: (int index) {
+              setState(() {
+                _selectedIndex = index;
+              });
+            },
+            backgroundColor: Colors.black54,
+            selectedIconTheme: const IconThemeData(
+              color: Colors.white,
+              size: 32,
             ),
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const HotkeySettingsPage(),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.keyboard),
-              label: const Text('Configurer raccourci'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
-                foregroundColor: Colors.white,
+            unselectedIconTheme: const IconThemeData(
+              color: Colors.grey,
+              size: 28,
+            ),
+            selectedLabelTextStyle: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+            unselectedLabelTextStyle: const TextStyle(color: Colors.grey),
+            labelType: NavigationRailLabelType.all,
+            destinations: const [
+              NavigationRailDestination(
+                icon: Icon(Icons.chat),
+                label: Text('Discord'),
               ),
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+              NavigationRailDestination(
+                icon: Icon(Icons.settings),
+                label: Text('Settings'),
+              ),
+            ],
+          ),
+          // Divider vertical
+          const VerticalDivider(thickness: 1, width: 1, color: Colors.white),
+          // Contenu principal
+          Expanded(
+            child: _selectedIndex == 0
+                ? const DiscordPage()
+                : const HotkeySettingsPage(),
+          ),
+        ],
       ),
     );
   }

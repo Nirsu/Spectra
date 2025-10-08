@@ -140,14 +140,14 @@ class _HotkeySettingsPageState extends State<HotkeySettingsPage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Raccourci clavier mis à jour avec succès!'),
+          content: Text('Hotkey updated successfully!'),
           backgroundColor: Colors.green,
         ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Erreur lors de la mise à jour du raccourci'),
+          content: Text('Error updating hotkey'),
           backgroundColor: Colors.red,
         ),
       );
@@ -157,10 +157,6 @@ class _HotkeySettingsPageState extends State<HotkeySettingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Configuration du raccourci clavier'),
-        backgroundColor: Colors.transparent,
-      ),
       backgroundColor: Colors.transparent,
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -169,6 +165,15 @@ class _HotkeySettingsPageState extends State<HotkeySettingsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const Text(
+                    'Hotkey Configuration',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
                   Card(
                     color: Colors.black54,
                     child: Padding(
@@ -177,7 +182,7 @@ class _HotkeySettingsPageState extends State<HotkeySettingsPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Raccourci actuel:',
+                            'Current Hotkey:',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -193,14 +198,14 @@ class _HotkeySettingsPageState extends State<HotkeySettingsPage> {
                             decoration: BoxDecoration(
                               color: Colors.black87,
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.deepPurple),
+                              border: Border.all(color: Colors.white),
                             ),
                             child: Text(
-                              currentHotkeyDisplay ?? 'Aucun',
+                              currentHotkeyDisplay ?? 'None',
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.deepPurple,
+                                color: Colors.white,
                               ),
                             ),
                           ),
@@ -210,7 +215,7 @@ class _HotkeySettingsPageState extends State<HotkeySettingsPage> {
                   ),
                   const SizedBox(height: 24),
                   const Text(
-                    'Modificateurs:',
+                    'Modifiers:',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -235,16 +240,16 @@ class _HotkeySettingsPageState extends State<HotkeySettingsPage> {
                           });
                         },
                         backgroundColor: Colors.black54,
-                        selectedColor: Colors.deepPurple,
+                        selectedColor: Colors.white,
                         labelStyle: TextStyle(
-                          color: isSelected ? Colors.white : Colors.grey,
+                          color: isSelected ? Colors.black : Colors.grey,
                         ),
                       );
                     }).toList(),
                   ),
                   const SizedBox(height: 24),
                   const Text(
-                    'Touche:',
+                    'Key:',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -258,7 +263,7 @@ class _HotkeySettingsPageState extends State<HotkeySettingsPage> {
                     decoration: BoxDecoration(
                       color: Colors.black54,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.deepPurple),
+                      border: Border.all(color: Colors.white),
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
@@ -285,14 +290,14 @@ class _HotkeySettingsPageState extends State<HotkeySettingsPage> {
                       color: Colors.black54,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: Colors.deepPurple.withOpacity(0.5),
+                        color: Colors.white.withValues(alpha: 0.5),
                       ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Aperçu du nouveau raccourci:',
+                          'New hotkey preview:',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -305,7 +310,7 @@ class _HotkeySettingsPageState extends State<HotkeySettingsPage> {
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Colors.deepPurple,
+                            color: Colors.white,
                           ),
                         ),
                       ],
@@ -319,12 +324,12 @@ class _HotkeySettingsPageState extends State<HotkeySettingsPage> {
                           ? _applyHotkey
                           : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.deepPurple,
-                        foregroundColor: Colors.white,
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.black,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
                       child: const Text(
-                        'Appliquer le raccourci',
+                        'Apply Hotkey',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
