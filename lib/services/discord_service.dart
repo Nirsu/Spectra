@@ -25,6 +25,15 @@ class DiscordMessageData {
   });
 }
 
+/// Classe représentant un serveur Discord
+class DiscordGuildData {
+  final String id;
+  final String name;
+  final String? iconUrl;
+
+  const DiscordGuildData({required this.id, required this.name, this.iconUrl});
+}
+
 /// Classe pour gérer l'état de Discord
 class DiscordState {
   final DiscordConnectionState connectionState;
@@ -32,6 +41,8 @@ class DiscordState {
   final String? errorMessage;
   final User? currentUser;
   final List<DiscordMessageData> messages;
+  final List<DiscordGuildData> guilds;
+  final String? selectedGuildId;
 
   const DiscordState({
     required this.connectionState,
@@ -39,6 +50,8 @@ class DiscordState {
     this.errorMessage,
     this.currentUser,
     this.messages = const [],
+    this.guilds = const [],
+    this.selectedGuildId,
   });
 
   DiscordState copyWith({
@@ -47,6 +60,8 @@ class DiscordState {
     String? errorMessage,
     User? currentUser,
     List<DiscordMessageData>? messages,
+    List<DiscordGuildData>? guilds,
+    String? selectedGuildId,
   }) {
     return DiscordState(
       connectionState: connectionState ?? this.connectionState,
@@ -54,6 +69,8 @@ class DiscordState {
       errorMessage: errorMessage ?? this.errorMessage,
       currentUser: currentUser ?? this.currentUser,
       messages: messages ?? this.messages,
+      guilds: guilds ?? this.guilds,
+      selectedGuildId: selectedGuildId ?? this.selectedGuildId,
     );
   }
 }
@@ -86,24 +103,51 @@ class DiscordNotifier extends StateNotifier<DiscordState> {
       // Récupérer les informations de l'utilisateur actuel
       final user = await client.users.fetchCurrentUser();
 
+      // Récupérer la liste des serveurs (guilds)
+      final guilds = <DiscordGuildData>[];
+      try {
+        // Utiliser l'événement onReady pour récupérer les guilds
+        await for (final readyEvent in client.onReady.take(1)) {
+          for (final partialGuild in readyEvent.guilds) {
+            try {
+              // Fetch complete guild info
+              final guild = await client.guilds.fetch(partialGuild.id);
+              guilds.add(
+                DiscordGuildData(
+                  id: guild.id.toString(),
+                  name: guild.name,
+                  iconUrl: guild.icon?.url.toString(),
+                ),
+              );
+            } catch (e) {
+              print('⚠️ Unable to fetch server ${partialGuild.id}: $e');
+            }
+          }
+        }
+      } catch (e) {
+        print('⚠️ Unable to fetch servers: $e');
+      }
+
       state = state.copyWith(
         connectionState: DiscordConnectionState.connected,
         client: client,
         currentUser: user,
         errorMessage: null,
         messages: [], // Réinitialiser les messages
+        guilds: guilds,
       );
 
       // Écouter les nouveaux messages
       _listenToMessages(client);
 
-      print('✅ Connecté à Discord en tant que ${user.username}');
+      print('✅ Connected to Discord as ${user.username}');
+      print('📁 ${guilds.length} server(s) available');
     } catch (e) {
       state = state.copyWith(
         connectionState: DiscordConnectionState.error,
         errorMessage: e.toString(),
       );
-      print('❌ Erreur de connexion: $e');
+      print('❌ Connection error: $e');
     }
   }
 
@@ -129,7 +173,7 @@ class DiscordNotifier extends StateNotifier<DiscordState> {
             channelName = 'DM';
           }
         } catch (e) {
-          print('⚠️ Impossible de récupérer le nom du canal: $e');
+          print('⚠️ Unable to fetch channel name: $e');
         }
 
         // Créer l'objet message
@@ -151,10 +195,10 @@ class DiscordNotifier extends StateNotifier<DiscordState> {
         state = state.copyWith(messages: updatedMessages);
 
         print(
-          '📩 Message reçu de ${message.author.username}: ${message.content}',
+          '📩 Message received from ${message.author.username}: ${message.content}',
         );
       } catch (e) {
-        print('❌ Erreur lors du traitement du message: $e');
+        print('❌ Error processing message: $e');
       }
     });
   }
@@ -167,9 +211,9 @@ class DiscordNotifier extends StateNotifier<DiscordState> {
       state = const DiscordState(
         connectionState: DiscordConnectionState.disconnected,
       );
-      print('🔌 Déconnecté de Discord');
+      print('🔌 Disconnected from Discord');
     } catch (e) {
-      print('❌ Erreur lors de la déconnexion: $e');
+      print('❌ Error during disconnection: $e');
     }
   }
 
@@ -178,23 +222,29 @@ class DiscordNotifier extends StateNotifier<DiscordState> {
     state = state.copyWith(messages: []);
   }
 
+  /// Sélectionner un serveur
+  void selectGuild(String? guildId) {
+    state = state.copyWith(selectedGuildId: guildId);
+    print('📁 Server selected: $guildId');
+  }
+
   /// Envoyer un message dans un canal
   Future<void> sendMessage(Snowflake channelId, String content) async {
     try {
       final client = state.client;
       if (client == null) {
-        throw Exception('Client Discord non connecté');
+        throw Exception('Discord client not connected');
       }
 
       final channel = await client.channels.fetch(channelId);
       if (channel is! TextChannel) {
-        throw Exception('Le canal n\'est pas un canal textuel');
+        throw Exception('Channel is not a text channel');
       }
 
       await channel.sendMessage(MessageBuilder(content: content));
-      print('📨 Message envoyé: $content');
+      print('📨 Message sent: $content');
     } catch (e) {
-      print('❌ Erreur lors de l\'envoi du message: $e');
+      print('❌ Error sending message: $e');
       rethrow;
     }
   }

@@ -59,7 +59,7 @@ class DiscordPage extends ConsumerWidget {
                 ),
                 if (state.currentUser != null)
                   Text(
-                    'Connecté en tant que ${state.currentUser!.username}',
+                    'Connected as ${state.currentUser!.username}',
                     style: TextStyle(fontSize: 14, color: Colors.grey.shade400),
                   ),
               ],
@@ -86,8 +86,8 @@ class DiscordPage extends ConsumerWidget {
             ),
             label: Text(
               state.connectionState == DiscordConnectionState.connected
-                  ? 'Déconnecter'
-                  : 'Connecter',
+                  ? 'Disconnect'
+                  : 'Connect',
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor:
@@ -131,12 +131,12 @@ class DiscordPage extends ConsumerWidget {
           ),
           const SizedBox(height: 24),
           Text(
-            'Non connecté à Discord',
+            'Not connected to Discord',
             style: TextStyle(fontSize: 24, color: Colors.grey.shade400),
           ),
           const SizedBox(height: 12),
           Text(
-            'Cliquez sur "Connecter" pour vous connecter',
+            'Click "Connect" to connect',
             style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
           ),
         ],
@@ -151,7 +151,7 @@ class DiscordPage extends ConsumerWidget {
         children: [
           CircularProgressIndicator(color: Colors.blue),
           SizedBox(height: 24),
-          Text('Connexion à Discord...', style: TextStyle(fontSize: 18)),
+          Text('Connecting to Discord...', style: TextStyle(fontSize: 18)),
         ],
       ),
     );
@@ -160,7 +160,7 @@ class DiscordPage extends ConsumerWidget {
   Widget _buildConnectedView(DiscordState state, WidgetRef ref) {
     return Column(
       children: [
-        // En-tête avec informations utilisateur
+        // Sélection de serveur
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -168,72 +168,60 @@ class DiscordPage extends ConsumerWidget {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.grey.shade800),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Avatar de l'utilisateur
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.blue.shade700,
-                ),
-                child: const Icon(Icons.person, size: 30, color: Colors.white),
-              ),
-              const SizedBox(width: 16),
-
-              // Informations utilisateur
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (state.currentUser != null) ...[
-                      Text(
-                        state.currentUser!.username,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'ID: ${state.currentUser!.id}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade400,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-
-              // Compteur de messages
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade900.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.blue.shade700),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.message, color: Colors.blue.shade400, size: 16),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${state.messages.length}',
+              Row(
+                children: [
+                  Icon(Icons.dns, color: Colors.blue.shade400, size: 20),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Available Servers',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade900.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.blue.shade700),
+                    ),
+                    child: Text(
+                      '${state.guilds.length} server(s)',
                       style: TextStyle(
                         color: Colors.blue.shade400,
+                        fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
+              if (state.guilds.isEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'No servers found',
+                  style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+                ),
+              ] else ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 80,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: state.guilds.length,
+                    itemBuilder: (context, index) {
+                      final guild = state.guilds[index];
+                      final isSelected = state.selectedGuildId == guild.id;
+                      return _buildGuildCard(guild, isSelected, ref);
+                    },
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -250,6 +238,78 @@ class DiscordPage extends ConsumerWidget {
     );
   }
 
+  Widget _buildGuildCard(
+    DiscordGuildData guild,
+    bool isSelected,
+    WidgetRef ref,
+  ) {
+    return GestureDetector(
+      onTap: () {
+        ref
+            .read(discordProvider.notifier)
+            .selectGuild(isSelected ? null : guild.id);
+      },
+      child: Container(
+        width: 180,
+        margin: const EdgeInsets.only(right: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Colors.blue.shade900.withOpacity(0.3)
+              : Colors.grey.shade800,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? Colors.blue.shade600 : Colors.grey.shade700,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            // Icône du serveur
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.blue.shade700,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: guild.iconUrl != null
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        guild.iconUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Icon(
+                            Icons.discord,
+                            color: Colors.white,
+                            size: 24,
+                          );
+                        },
+                      ),
+                    )
+                  : const Icon(Icons.discord, color: Colors.white, size: 24),
+            ),
+            const SizedBox(width: 12),
+            // Nom du serveur
+            Expanded(
+              child: Text(
+                guild.name,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? Colors.blue.shade300 : Colors.white,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildNoMessagesView() {
     return Center(
       child: Column(
@@ -262,12 +322,12 @@ class DiscordPage extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Aucun message pour le moment',
+            'No messages yet',
             style: TextStyle(fontSize: 18, color: Colors.grey.shade400),
           ),
           const SizedBox(height: 8),
           Text(
-            'Les messages reçus apparaîtront ici',
+            'Received messages will appear here',
             style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
           ),
         ],
@@ -297,7 +357,7 @@ class DiscordPage extends ConsumerWidget {
             child: Row(
               children: [
                 const Text(
-                  'Messages reçus',
+                  'Received Messages',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
@@ -307,7 +367,7 @@ class DiscordPage extends ConsumerWidget {
                     ref.read(discordProvider.notifier).clearMessages();
                   },
                   icon: const Icon(Icons.clear_all, size: 16),
-                  label: const Text('Effacer'),
+                  label: const Text('Clear'),
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.grey.shade400,
                   ),
@@ -411,11 +471,11 @@ class DiscordPage extends ConsumerWidget {
     final difference = now.difference(timestamp);
 
     if (difference.inSeconds < 60) {
-      return 'il y a ${difference.inSeconds}s';
+      return '${difference.inSeconds}s ago';
     } else if (difference.inMinutes < 60) {
-      return 'il y a ${difference.inMinutes}min';
+      return '${difference.inMinutes}min ago';
     } else if (difference.inHours < 24) {
-      return 'il y a ${difference.inHours}h';
+      return '${difference.inHours}h ago';
     } else {
       return '${timestamp.day}/${timestamp.month} ${timestamp.hour}:${timestamp.minute.toString().padLeft(2, '0')}';
     }
@@ -429,7 +489,7 @@ class DiscordPage extends ConsumerWidget {
           Icon(Icons.error_outline, size: 80, color: Colors.red.shade400),
           const SizedBox(height: 24),
           Text(
-            'Erreur de connexion',
+            'Connection Error',
             style: TextStyle(fontSize: 24, color: Colors.red.shade400),
           ),
           const SizedBox(height: 12),
@@ -442,7 +502,7 @@ class DiscordPage extends ConsumerWidget {
               border: Border.all(color: Colors.red.shade800),
             ),
             child: Text(
-              state.errorMessage ?? 'Erreur inconnue',
+              state.errorMessage ?? 'Unknown error',
               style: TextStyle(fontSize: 14, color: Colors.red.shade300),
               textAlign: TextAlign.center,
             ),
@@ -468,13 +528,13 @@ class DiscordPage extends ConsumerWidget {
   String _getStatusText(DiscordConnectionState state) {
     switch (state) {
       case DiscordConnectionState.disconnected:
-        return 'Déconnecté';
+        return 'Disconnected';
       case DiscordConnectionState.connecting:
-        return 'Connexion en cours...';
+        return 'Connecting...';
       case DiscordConnectionState.connected:
-        return 'Connecté';
+        return 'Connected';
       case DiscordConnectionState.error:
-        return 'Erreur';
+        return 'Error';
     }
   }
 }
