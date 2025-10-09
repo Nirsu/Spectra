@@ -227,9 +227,54 @@ class DiscordPage extends ConsumerWidget {
   }
 
   Widget _buildConnectedView(DiscordState state, WidgetRef ref) {
-    return state.messages.isEmpty
-        ? _buildNoMessagesView()
-        : _buildMessagesList(state.messages, ref);
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey.shade900,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade800),
+      ),
+      child: Column(
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade600,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Text(
+                  'Received Messages',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: () {
+                    ref.read(discordProvider.notifier).clearMessages();
+                  },
+                  icon: const Icon(Icons.clear_all, size: 16),
+                  label: const Text('Clear'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.grey.shade400,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Content
+          Expanded(
+            child: state.messages.isEmpty
+                ? _buildNoMessagesView()
+                : _buildMessagesList(state.messages),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildNoMessagesView() {
@@ -257,58 +302,15 @@ class DiscordPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildMessagesList(List<DiscordMessageData> messages, WidgetRef ref) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey.shade900,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade800),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade800,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
-              ),
-            ),
-            child: Row(
-              children: [
-                const Text(
-                  'Received Messages',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: () {
-                    ref.read(discordProvider.notifier).clearMessages();
-                  },
-                  icon: const Icon(Icons.clear_all, size: 16),
-                  label: const Text('Clear'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.grey.shade400,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          Expanded(
-            child: ListView.builder(
-              reverse: false,
-              padding: const EdgeInsets.all(8),
-              itemCount: messages.length,
-              itemBuilder: (context, index) {
-                final message = messages[index];
-                return _buildMessageCard(message);
-              },
-            ),
-          ),
-        ],
-      ),
+  Widget _buildMessagesList(List<DiscordMessageData> messages) {
+    return ListView.builder(
+      reverse: false,
+      padding: const EdgeInsets.all(8),
+      itemCount: messages.length,
+      itemBuilder: (context, index) {
+        final message = messages[index];
+        return _buildMessageCard(message);
+      },
     );
   }
 
