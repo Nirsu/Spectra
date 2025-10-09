@@ -11,6 +11,7 @@ class DiscordMessageData {
   final String id;
   final String content;
   final String authorName;
+  final String channelId;
   final String channelName;
   final DateTime timestamp;
   final String? avatarUrl;
@@ -19,6 +20,7 @@ class DiscordMessageData {
     required this.id,
     required this.content,
     required this.authorName,
+    required this.channelId,
     required this.channelName,
     required this.timestamp,
     this.avatarUrl,
@@ -34,6 +36,19 @@ class DiscordGuildData {
   const DiscordGuildData({required this.id, required this.name, this.iconUrl});
 }
 
+/// Classe représentant un channel Discord
+class DiscordChannelData {
+  final String id;
+  final String name;
+  final String guildId;
+
+  const DiscordChannelData({
+    required this.id,
+    required this.name,
+    required this.guildId,
+  });
+}
+
 /// Classe pour gérer l'état de Discord
 class DiscordState {
   final DiscordConnectionState connectionState;
@@ -43,6 +58,8 @@ class DiscordState {
   final List<DiscordMessageData> messages;
   final List<DiscordGuildData> guilds;
   final String? selectedGuildId;
+  final List<DiscordChannelData> channels;
+  final String? selectedChannelId;
 
   const DiscordState({
     required this.connectionState,
@@ -52,6 +69,8 @@ class DiscordState {
     this.messages = const [],
     this.guilds = const [],
     this.selectedGuildId,
+    this.channels = const [],
+    this.selectedChannelId,
   });
 
   DiscordState copyWith({
@@ -62,6 +81,8 @@ class DiscordState {
     List<DiscordMessageData>? messages,
     List<DiscordGuildData>? guilds,
     String? selectedGuildId,
+    List<DiscordChannelData>? channels,
+    Object? selectedChannelId = _undefined,
   }) {
     return DiscordState(
       connectionState: connectionState ?? this.connectionState,
@@ -71,9 +92,16 @@ class DiscordState {
       messages: messages ?? this.messages,
       guilds: guilds ?? this.guilds,
       selectedGuildId: selectedGuildId ?? this.selectedGuildId,
+      channels: channels ?? this.channels,
+      selectedChannelId: selectedChannelId == _undefined
+          ? this.selectedChannelId
+          : selectedChannelId as String?,
     );
   }
 }
+
+// Sentinel value for undefined optional parameters
+const _undefined = Object();
 
 /// Notifier pour gérer le client Discord
 class DiscordNotifier extends StateNotifier<DiscordState> {
@@ -135,6 +163,7 @@ class DiscordNotifier extends StateNotifier<DiscordState> {
         errorMessage: null,
         messages: [], // Réinitialiser les messages
         guilds: guilds,
+        selectedGuildId: guilds.isNotEmpty ? guilds.first.id : null,
       );
 
       // Écouter les nouveaux messages
@@ -142,6 +171,11 @@ class DiscordNotifier extends StateNotifier<DiscordState> {
 
       print('✅ Connected to Discord as ${user.username}');
       print('📁 ${guilds.length} server(s) available');
+
+      // Charger les channels du premier serveur automatiquement
+      if (guilds.isNotEmpty) {
+        await _loadChannels(guilds.first.id);
+      }
     } catch (e) {
       state = state.copyWith(
         connectionState: DiscordConnectionState.error,
@@ -181,6 +215,7 @@ class DiscordNotifier extends StateNotifier<DiscordState> {
           id: message.id.toString(),
           content: message.content,
           authorName: message.author.username,
+          channelId: message.channelId.toString(),
           channelName: channelName,
           timestamp: message.timestamp,
           avatarUrl: message.author.avatar?.url.toString(),
@@ -195,8 +230,9 @@ class DiscordNotifier extends StateNotifier<DiscordState> {
         state = state.copyWith(messages: updatedMessages);
 
         print(
-          '📩 Message received from ${message.author.username}: ${message.content}',
+          '📩 Message received from ${message.author.username} in channel ${message.channelId}: ${message.content}',
         );
+        print('📊 Total messages: ${updatedMessages.length}');
       } catch (e) {
         print('❌ Error processing message: $e');
       }
@@ -223,9 +259,58 @@ class DiscordNotifier extends StateNotifier<DiscordState> {
   }
 
   /// Sélectionner un serveur
-  void selectGuild(String? guildId) {
-    state = state.copyWith(selectedGuildId: guildId);
+  Future<void> selectGuild(String? guildId) async {
+    state = state.copyWith(
+      selectedGuildId: guildId,
+      channels: [],
+      selectedChannelId: null,
+    );
     print('📁 Server selected: $guildId');
+
+    // Charger les channels du serveur sélectionné
+    if (guildId != null) {
+      await _loadChannels(guildId);
+    }
+  }
+
+  /// Charger les channels d'un serveur
+  Future<void> _loadChannels(String guildId) async {
+    try {
+      final client = state.client;
+      if (client == null) return;
+
+      final guild = await client.guilds.fetch(Snowflake.parse(guildId));
+      final channels = <DiscordChannelData>[];
+
+      final guildChannels = await guild.fetchChannels();
+      for (final channel in guildChannels) {
+        // Ne garder que les channels textuels (pas les vocaux, catégories, etc.)
+        if (channel is TextChannel) {
+          print('📺 Found channel: ${channel.name} (type: ${channel.type})');
+          channels.add(
+            DiscordChannelData(
+              id: channel.id.toString(),
+              name: channel.name,
+              guildId: guildId,
+            ),
+          );
+        }
+      }
+
+      // Trier les channels par ordre alphabétique
+      channels.sort((a, b) => a.name.compareTo(b.name));
+
+      state = state.copyWith(channels: channels);
+      print('📺 ${channels.length} text channel(s) loaded');
+    } catch (e) {
+      print('❌ Error loading channels: $e');
+    }
+  }
+
+  /// Sélectionner un channel
+  void selectChannel(String? channelId) {
+    state = state.copyWith(selectedChannelId: channelId);
+    print('📺 Channel selected: $channelId');
   }
 
   /// Envoyer un message dans un canal

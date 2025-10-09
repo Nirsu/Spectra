@@ -171,6 +171,65 @@ class DiscordPage extends ConsumerWidget {
     );
   }
 
+  Widget _buildChannelDropdown(DiscordState state, WidgetRef ref) {
+    // Use a special value for "all channels" instead of null
+    const allChannelsValue = '__all__';
+    final currentValue = state.selectedChannelId ?? allChannelsValue;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade700,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: Colors.grey.shade600),
+      ),
+      child: DropdownButton<String>(
+        value: currentValue,
+        isExpanded: false,
+        underline: const SizedBox(),
+        dropdownColor: Colors.grey.shade800,
+        icon: Icon(Icons.arrow_drop_down, color: Colors.grey.shade300),
+        items: [
+          // Option "All channels"
+          const DropdownMenuItem<String>(
+            value: allChannelsValue,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.tag, size: 16, color: Colors.grey),
+                SizedBox(width: 8),
+                Text('All channels', style: TextStyle(color: Colors.grey)),
+              ],
+            ),
+          ),
+          // Liste des channels
+          ...state.channels.map((channel) {
+            return DropdownMenuItem<String>(
+              value: channel.id,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.tag, size: 16, color: Colors.grey.shade300),
+                  const SizedBox(width: 8),
+                  Text(
+                    channel.name,
+                    style: TextStyle(color: Colors.grey.shade300),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+        onChanged: (channelId) {
+          // Convert '__all__' back to null
+          final selectedId = channelId == allChannelsValue ? null : channelId;
+          ref.read(discordProvider.notifier).selectChannel(selectedId);
+          print('🔄 Channel changed to: ${channelId ?? "All channels"}');
+        },
+      ),
+    );
+  }
+
   Widget _buildMainContent(
     BuildContext context,
     DiscordState state,
@@ -251,6 +310,36 @@ class DiscordPage extends ConsumerWidget {
                   'Received Messages',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
+                const SizedBox(width: 8),
+                // Message count badge
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade700,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${state.messages.length}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Channel filter dropdown
+                if (state.channels.isNotEmpty) ...[
+                  _buildChannelDropdown(state, ref),
+                ] else if (state.selectedGuildId != null) ...[
+                  // Show loading indicator if guild is selected but no channels yet
+                  Text(
+                    'Loading channels...',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                  ),
+                ],
                 const Spacer(),
                 TextButton.icon(
                   onPressed: () {
@@ -268,9 +357,20 @@ class DiscordPage extends ConsumerWidget {
 
           // Content
           Expanded(
-            child: state.messages.isEmpty
-                ? _buildNoMessagesView()
-                : _buildMessagesList(state.messages),
+            child: () {
+              // Filter messages by selected channel
+              final filteredMessages = state.selectedChannelId == null
+                  ? state.messages
+                  : state.messages
+                        .where(
+                          (msg) => msg.channelId == state.selectedChannelId,
+                        )
+                        .toList();
+
+              return filteredMessages.isEmpty
+                  ? _buildNoMessagesView()
+                  : _buildMessagesList(filteredMessages);
+            }(),
           ),
         ],
       ),
