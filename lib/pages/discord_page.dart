@@ -13,11 +13,9 @@ class DiscordPage extends ConsumerWidget {
       padding: const EdgeInsets.all(24.0),
       child: Column(
         children: [
-          // En-tête avec statut de connexion
           _buildHeader(context, discordState, ref),
           const SizedBox(height: 32),
 
-          // Zone de contenu principale
           Expanded(child: _buildMainContent(context, discordState, ref)),
         ],
       ),
@@ -34,7 +32,6 @@ class DiscordPage extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          // Icône de statut
           Container(
             width: 12,
             height: 12,
@@ -45,28 +42,37 @@ class DiscordPage extends ConsumerWidget {
           ),
           const SizedBox(width: 12),
 
-          // Informations de connexion
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _getStatusText(state.connectionState),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+          // Status info - pas Expanded pour garder sa taille naturelle
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _getStatusText(state.connectionState),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
-                if (state.currentUser != null)
-                  Text(
-                    'Connected as ${state.currentUser!.username}',
-                    style: TextStyle(fontSize: 14, color: Colors.grey.shade400),
-                  ),
-              ],
-            ),
+              ),
+              if (state.currentUser != null)
+                Text(
+                  'Connected as ${state.currentUser!.username} BOT',
+                  style: TextStyle(fontSize: 14, color: Colors.grey.shade400),
+                ),
+            ],
           ),
 
-          // Bouton de connexion/déconnexion
+          // Server selector (only when connected)
+          if (state.connectionState == DiscordConnectionState.connected &&
+              state.guilds.isNotEmpty) ...[
+            const SizedBox(width: 16),
+            Container(height: 48, width: 1, color: Colors.grey.shade700),
+            const SizedBox(width: 16),
+            _buildServerSelector(state, ref),
+          ],
+
+          const Spacer(),
+
           ElevatedButton.icon(
             onPressed:
                 state.connectionState == DiscordConnectionState.connecting
@@ -98,6 +104,69 @@ class DiscordPage extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildServerSelector(DiscordState state, WidgetRef ref) {
+    return SizedBox(
+      height: 48,
+      width: 300,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: state.guilds.length,
+        itemBuilder: (context, index) {
+          final guild = state.guilds[index];
+          final isSelected = guild.id == state.selectedGuildId;
+
+          return Tooltip(
+            message: guild.name,
+            child: GestureDetector(
+              onTap: () {
+                ref.read(discordProvider.notifier).selectGuild(guild.id);
+              },
+              child: Container(
+                margin: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? Colors.blue.shade700
+                      : Colors.grey.shade800,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isSelected
+                        ? Colors.blue.shade500
+                        : Colors.grey.shade700,
+                    width: isSelected ? 2 : 1,
+                  ),
+                ),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: guild.iconUrl != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: Image.network(
+                            guild.iconUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Icon(
+                                Icons.discord,
+                                color: Colors.white,
+                                size: 24,
+                              );
+                            },
+                          ),
+                        )
+                      : Icon(Icons.discord, color: Colors.white, size: 24),
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -158,156 +227,9 @@ class DiscordPage extends ConsumerWidget {
   }
 
   Widget _buildConnectedView(DiscordState state, WidgetRef ref) {
-    return Column(
-      children: [
-        // Sélection de serveur
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade900,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade800),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.dns, color: Colors.blue.shade400, size: 20),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Available Servers',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade900.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.blue.shade700),
-                    ),
-                    child: Text(
-                      '${state.guilds.length} server(s)',
-                      style: TextStyle(
-                        color: Colors.blue.shade400,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              if (state.guilds.isEmpty) ...[
-                const SizedBox(height: 12),
-                Text(
-                  'No servers found',
-                  style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
-                ),
-              ] else ...[
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 80,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: state.guilds.length,
-                    itemBuilder: (context, index) {
-                      final guild = state.guilds[index];
-                      final isSelected = state.selectedGuildId == guild.id;
-                      return _buildGuildCard(guild, isSelected, ref);
-                    },
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 16),
-
-        // Liste des messages
-        Expanded(
-          child: state.messages.isEmpty
-              ? _buildNoMessagesView()
-              : _buildMessagesList(state.messages, ref),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildGuildCard(
-    DiscordGuildData guild,
-    bool isSelected,
-    WidgetRef ref,
-  ) {
-    return GestureDetector(
-      onTap: () {
-        ref
-            .read(discordProvider.notifier)
-            .selectGuild(isSelected ? null : guild.id);
-      },
-      child: Container(
-        width: 180,
-        margin: const EdgeInsets.only(right: 12),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? Colors.blue.shade900.withOpacity(0.3)
-              : Colors.grey.shade800,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isSelected ? Colors.blue.shade600 : Colors.grey.shade700,
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            // Icône du serveur
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: Colors.blue.shade700,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: guild.iconUrl != null
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        guild.iconUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Icon(
-                            Icons.discord,
-                            color: Colors.white,
-                            size: 24,
-                          );
-                        },
-                      ),
-                    )
-                  : const Icon(Icons.discord, color: Colors.white, size: 24),
-            ),
-            const SizedBox(width: 12),
-            // Nom du serveur
-            Expanded(
-              child: Text(
-                guild.name,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  color: isSelected ? Colors.blue.shade300 : Colors.white,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    return state.messages.isEmpty
+        ? _buildNoMessagesView()
+        : _buildMessagesList(state.messages, ref);
   }
 
   Widget _buildNoMessagesView() {
@@ -344,7 +266,6 @@ class DiscordPage extends ConsumerWidget {
       ),
       child: Column(
         children: [
-          // En-tête de la liste
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -361,7 +282,6 @@ class DiscordPage extends ConsumerWidget {
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
-                // Bouton pour effacer les messages
                 TextButton.icon(
                   onPressed: () {
                     ref.read(discordProvider.notifier).clearMessages();
@@ -376,7 +296,6 @@ class DiscordPage extends ConsumerWidget {
             ),
           ),
 
-          // Liste scrollable
           Expanded(
             child: ListView.builder(
               reverse: false,
@@ -402,10 +321,8 @@ class DiscordPage extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // En-tête du message
             Row(
               children: [
-                // Avatar
                 CircleAvatar(
                   radius: 16,
                   backgroundColor: Colors.blue.shade700,
@@ -419,7 +336,6 @@ class DiscordPage extends ConsumerWidget {
                 ),
                 const SizedBox(width: 8),
 
-                // Nom de l'auteur
                 Text(
                   message.authorName,
                   style: const TextStyle(
@@ -430,7 +346,6 @@ class DiscordPage extends ConsumerWidget {
 
                 const SizedBox(width: 8),
 
-                // Nom du canal
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 6,
@@ -448,7 +363,6 @@ class DiscordPage extends ConsumerWidget {
 
                 const Spacer(),
 
-                // Horodatage
                 Text(
                   _formatTimestamp(message.timestamp),
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
@@ -458,7 +372,6 @@ class DiscordPage extends ConsumerWidget {
 
             const SizedBox(height: 8),
 
-            // Contenu du message
             Text(message.content, style: const TextStyle(fontSize: 14)),
           ],
         ),
